@@ -23,6 +23,7 @@ def set_gemini_key():
 
 def set_openai_key():
     openai.api_key = os.environ['OPENAI_API_KEY']
+    openai.api_base = os.environ.get('OPENAI_BASE_URL', openai.api_base)
 
 
 def run_json_trials(query, num_gen=1, num_tokens_request=1000, 
@@ -106,11 +107,12 @@ def run_chatgpt(query, num_gen=1, num_tokens_request=1000,
             #                     prompt=query
             #                 )
             if model == 'chatgpt':
+                chat_model = os.environ.get('OPENAI_CHAT_MODEL', 'gpt-3.5-turbo')
                 messages = [
                         {"role": "system", "content": query}
                     ]
                 completion = openai.ChatCompletion.create(
-                    model="gpt-3.5-turbo",
+                    model=chat_model,
                     temperature = temperature,
                     max_tokens = num_tokens_request,
                     n=num_gen,

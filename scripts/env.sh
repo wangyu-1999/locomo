@@ -15,8 +15,10 @@ SESS_SUMM_OUTPUT_FILE=locomo10_session_summary.json
 # path to folder containing prompts and in-context examples
 PROMPT_DIR=./prompt_examples
 
-# OpenAI API Key
+# OpenAI
 export OPENAI_API_KEY=
+export OPENAI_BASE_URL=
+export OPENAI_CHAT_MODEL=
 
 # Google API Key
 export GOOGLE_API_KEY=
