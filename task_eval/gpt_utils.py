@@ -292,9 +292,29 @@ def get_gpt_answers(in_data, out_data, prediction_key, args):
             if len(cat_5_idxs) > 0:
                 answer = get_cat_5_answer(answer, cat_5_answers[0])
 
+            # save raw LLM output as well as processed prediction
             out_data['qa'][include_idxs[0]][prediction_key] = answer.strip()
             if args.use_rag:
                 out_data['qa'][include_idxs[0]][prediction_key + '_context'] = context_ids
+
+            # immediate logging (flush to disk) so partial results persist
+            try:
+                preds_path = getattr(args, 'preds_file', None)
+                if preds_path:
+                    preds_dir = os.path.dirname(preds_path)
+                    if preds_dir:
+                        os.makedirs(preds_dir, exist_ok=True)
+                    record = {
+                        'sample_id': out_data.get('sample_id'),
+                        'qa_index': include_idxs[0],
+                        'question': out_data['qa'][include_idxs[0]].get('question'),
+                        'prediction': out_data['qa'][include_idxs[0]].get(prediction_key),
+                    }
+                    with open(preds_path, 'a', encoding='utf-8') as pf:
+                        pf.write(json.dumps(record, ensure_ascii=False) + "\n")
+                        pf.flush()
+            except Exception:
+                pass
 
         else:
             # query = query_conv + '\n' + QA_PROMPT_BATCH + "\n".join(["QUESTION: %s" % q for q in questions])
@@ -308,9 +328,9 @@ def get_gpt_answers(in_data, out_data, prediction_key, args):
                     # print("Sending query of %s tokens" % len(encoding.encode(query)))
                     # print("Trying with answer token budget = %s per question" % PER_QA_TOKEN_BUDGET)
                     answer = run_chatgpt(query, num_gen=1, num_tokens_request=args.batch_size*PER_QA_TOKEN_BUDGET, 
-                            model='chatgpt' if 'gpt-3.5' in args.model else args.model, 
-                            use_16k=True if any([k in args.model for k in ['16k', '12k', '8k', '4k']]) else False, 
-                            temperature=0, wait_time=2)
+                    model='chatgpt' if 'gpt-3.5' in args.model else args.model, 
+                    use_16k=True if any([k in args.model for k in ['16k', '12k', '8k', '4k']]) else False, 
+                    temperature=0, wait_time=2)
                     answer = answer.replace('\\"', "'").replace('json','').replace('`','').strip().replace("\\'", "")
                     answers = process_ouput(answer.strip())
                     break

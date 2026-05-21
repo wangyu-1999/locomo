@@ -29,6 +29,7 @@ def parse_args():
     parser.add_argument('--top-k', type=int, default=5)
     parser.add_argument('--retriever', type=str, default="contriever")
     parser.add_argument('--overwrite', action="store_true")
+    parser.add_argument('--preds-file', type=str, default="", help='Optional path to append per-inference predictions as JSONL')
     args = parser.parse_args()
     return args
 
@@ -38,6 +39,13 @@ def main():
     # get arguments
     args = parse_args()
 
+    # ensure preds file exists early so partial results are visible even if run is interrupted
+    if getattr(args, 'preds_file', None):
+        preds_path_early = args.preds_file
+        preds_dir_early = os.path.dirname(preds_path_early)
+        if preds_dir_early:
+            os.makedirs(preds_dir_early, exist_ok=True)
+        
     print("******************  Evaluating Model %s ***************" % args.model)
 
     if 'gpt' in args.model:
@@ -103,6 +111,10 @@ def main():
 
         out_samples[data['sample_id']] = answers
 
+    # ensure output directory exists
+    out_dir = os.path.dirname(args.out_file)
+    if out_dir:
+        os.makedirs(out_dir, exist_ok=True)
 
     with open(args.out_file, 'w') as f:
         json.dump(list(out_samples.values()), f, indent=2)

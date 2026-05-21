@@ -17,9 +17,9 @@ fi
 if [ ${#extra_args[@]} -gt 0 ]; then
 python3 task_eval/evaluate_qa.py \
 --data-file "$DATA_FILE_PATH" --out-file "$OUT_DIR/$QA_OUTPUT_FILE" \
---model "$MODEL_NAME" --batch-size "$BATCH_SIZE" "${extra_args[@]}"
+--model "$MODEL_NAME" --batch-size "$BATCH_SIZE" --preds-file "./outputs/preds.jsonl" "${extra_args[@]}"
 else
 python3 task_eval/evaluate_qa.py \
 --data-file "$DATA_FILE_PATH" --out-file "$OUT_DIR/$QA_OUTPUT_FILE" \
---model "$MODEL_NAME" --batch-size "$BATCH_SIZE"
+--model "$MODEL_NAME" --batch-size "$BATCH_SIZE" --preds-file "./outputs/preds.jsonl"
 fi
