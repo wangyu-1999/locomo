@@ -164,13 +164,14 @@ def get_gemini_answers(model, in_data, out_data, prediction_key, args):
             if qa['category'] == 2:
                 questions.append(qa['question'] + ' Use DATE of CONVERSATION to answer with an approximate date.')
             elif qa['category'] == 5:
+                adversarial_answer = qa.get('answer', qa.get('adversarial_answer'))
                 question = qa['question'] + " Select the correct answer: (a) {} (b) {}. "
                 if random.random() < 0.5:
-                    question = question.format('Not mentioned in the conversation', qa['answer'])
-                    answer = {'a': 'Not mentioned in the conversation', 'b': qa['answer']}
+                    question = question.format('Not mentioned in the conversation', adversarial_answer)
+                    answer = {'a': 'Not mentioned in the conversation', 'b': adversarial_answer}
                 else:
-                    question = question.format(qa['answer'], 'Not mentioned in the conversation')
-                    answer = {'b': 'Not mentioned in the conversation', 'a': qa['answer']}
+                    question = question.format(adversarial_answer, 'Not mentioned in the conversation')
+                    answer = {'b': 'Not mentioned in the conversation', 'a': adversarial_answer}
 
                 cat_5_idxs.append(len(questions))
                 questions.append(question)

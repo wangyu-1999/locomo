@@ -2,8 +2,8 @@ import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-import os, json
-from tqdm import tqdm
+import os
+import json
 import argparse
 from global_methods import set_openai_key, set_anthropic_key, set_gemini_key
 from task_eval.evaluation import eval_question_answering
@@ -13,7 +13,6 @@ from task_eval.claude_utils import get_claude_answers
 from task_eval.gemini_utils import get_gemini_answers
 from task_eval.hf_llm_utils import init_hf_model, get_hf_answers
 
-import numpy as np
 import google.generativeai as genai
 
 def parse_args():

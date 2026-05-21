@@ -1,2 +1,4 @@
 .venv
 scripts/env.sh
+
+__pycache__

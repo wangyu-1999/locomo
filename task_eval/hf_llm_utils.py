@@ -252,15 +252,14 @@ def get_hf_answers(in_data, out_data, args, pipeline, model_name):
             if qa['category'] == 2:
                 questions.append(qa['question'] + ' Use DATE of CONVERSATION to answer with an approximate date.')
             elif qa['category'] == 5:
+                adversarial_answer = qa.get('answer', qa.get('adversarial_answer'))
                 question = qa['question'] + " (a) {} (b) {}. Select the correct answer by writing (a) or (b)."
                 if random.random() < 0.5:
-                    question = question.format('No information available', qa['answer'])
-                    answer = {'a': 'No information available', 'b': qa['answer']}
+                    question = question.format('No information available', adversarial_answer)
+                    answer = {'a': 'No information available', 'b': adversarial_answer}
                 else:
-                    question = question.format(qa['answer'], 'No information available')
-                    answer = {'b': 'No information available', 'a': qa['answer']}
-                cat_5_idxs.append(len(questions))
-                questions.append(question)
+                    question = question.format(adversarial_answer, 'No information available')
+                    answer = {'b': 'No information available', 'a': adversarial_answer}
                 cat_5_answers.append(answer)
                 # questions.append(qa['question'] + " Write NOT ANSWERABLE if the question cannot be answered.")
             else:

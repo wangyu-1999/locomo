@@ -5,7 +5,6 @@ import unicodedata
 from typing import List
 import numpy as np
 from collections import Counter
-import os
 from bert_score import score
 from nltk.stem import PorterStemmer
 ps = PorterStemmer()
@@ -70,6 +69,10 @@ def has_answer(answers, text, tokenizer=SimpleTokenizer()) -> bool:
 
 def _normalize(text):
     return unicodedata.normalize('NFD', text)
+
+
+def _get_reference_answer(line):
+    return line.get('answer', line.get('adversarial_answer'))
 
 
 def normalize_answer(s):
@@ -172,7 +175,7 @@ def eval_recall(infile):
     answer_lengths = []
     for line in lines:
         line = json.loads(line)
-        answer = line['answer']
+        answer = _get_reference_answer(line)
         output = ' || '.join(line['output'])
 
         if has_answer(answer, output, tokenizer):
@@ -197,9 +200,9 @@ def eval_question_answering(qas, eval_key='prediction', metric='f1'):
     for i, line in enumerate(qas):
         # line = json.loads(line)
         if type(line[eval_key]) == list:
-            answer = line['answer']
+            answer = _get_reference_answer(line)
         else:
-            answer = str(line['answer'])
+            answer = str(_get_reference_answer(line))
         if line['category'] == 3:
             answer = answer.split(';')[0].strip()
         
@@ -250,7 +253,7 @@ def eval_fact_checking(infile):
     answer_lengths = []
     for line in lines:
         line = json.loads(line)
-        answer = line['answer']
+        answer = _get_reference_answer(line)
         output = line['output'][0]
 
         if answer == ["refutes"]:
@@ -278,7 +281,7 @@ def eval_dialogue_system(infile):
     answer_lengths = []
     for line in lines:
         line = json.loads(line)
-        answer = line['answer']
+        answer = _get_reference_answer(line)
         output = line['output'][0]
 
         f1_scores.append(f1(output, answer))

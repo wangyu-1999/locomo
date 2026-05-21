@@ -9,9 +9,35 @@ import google.generativeai as genai
 from anthropic import Anthropic
 
 
+_OPENAI_CLIENT = None
+
+
+def _get_openai_client():
+    global _OPENAI_CLIENT
+    if _OPENAI_CLIENT is None:
+        api_key = os.environ['OPENAI_API_KEY']
+        base_url = os.environ.get('OPENAI_BASE_URL')
+        if base_url:
+            _OPENAI_CLIENT = openai.OpenAI(api_key=api_key, base_url=base_url)
+        else:
+            _OPENAI_CLIENT = openai.OpenAI(api_key=api_key)
+    return _OPENAI_CLIENT
+
+
+def _openai_retryable_errors():
+    error_names = ['APIError', 'APIConnectionError', 'RateLimitError', 'APITimeoutError', 'InternalServerError']
+    errors = []
+    for name in error_names:
+        if hasattr(openai, name):
+            errors.append(getattr(openai, name))
+    return tuple(errors) if errors else (Exception,)
+
+
 def get_openai_embedding(texts, model="text-embedding-ada-002"):
    texts = [text.replace("\n", " ") for text in texts]
-   return np.array([openai.Embedding.create(input = texts, model=model)['data'][i]['embedding'] for i in range(len(texts))])
+   client = _get_openai_client()
+   response = client.embeddings.create(input=texts, model=model)
+   return np.array([item.embedding for item in response.data])
 
 def set_anthropic_key():
     pass
@@ -23,7 +49,13 @@ def set_gemini_key():
 
 def set_openai_key():
     openai.api_key = os.environ['OPENAI_API_KEY']
-    openai.api_base = os.environ.get('OPENAI_BASE_URL', openai.api_base)
+    base_url = os.environ.get('OPENAI_BASE_URL')
+    if base_url:
+        if hasattr(openai, 'base_url'):
+            openai.base_url = base_url
+        elif hasattr(openai, 'api_base'):
+            openai.api_base = base_url
+    _get_openai_client()
 
 
 def run_json_trials(query, num_gen=1, num_tokens_request=1000, 
@@ -94,6 +126,8 @@ def run_chatgpt(query, num_gen=1, num_tokens_request=1000,
                 model='chatgpt', use_16k=False, temperature=1.0, wait_time=1):
 
     completion = None
+    client = _get_openai_client()
+    retryable_errors = _openai_retryable_errors()
     while completion is None:
         wait_time = wait_time * 2
         try:
@@ -111,7 +145,7 @@ def run_chatgpt(query, num_gen=1, num_tokens_request=1000,
                 messages = [
                         {"role": "system", "content": query}
                     ]
-                completion = openai.ChatCompletion.create(
+                completion = client.chat.completions.create(
                     model=chat_model,
                     temperature = temperature,
                     max_tokens = num_tokens_request,
@@ -119,7 +153,7 @@ def run_chatgpt(query, num_gen=1, num_tokens_request=1000,
                     messages = messages
                 )
             elif 'gpt-4' in model:
-                completion = openai.ChatCompletion.create(
+                completion = client.chat.completions.create(
                     model=model,
                     temperature = temperature,
                     max_tokens = num_tokens_request,
@@ -131,23 +165,9 @@ def run_chatgpt(query, num_gen=1, num_tokens_request=1000,
             else:
                 print("Did not find model %s" % model)
                 raise ValueError
-        except openai.error.APIError as e:
+        except retryable_errors as e:
             #Handle API error here, e.g. retry or log
             print(f"OpenAI API returned an API Error: {e}; waiting for {wait_time} seconds")
-            time.sleep(wait_time)
-            pass
-        except openai.error.APIConnectionError as e:
-            #Handle connection error here
-            print(f"Failed to connect to OpenAI API: {e}; waiting for {wait_time} seconds")
-            time.sleep(wait_time)
-            pass
-        except openai.error.RateLimitError as e:
-            #Handle rate limit error (we recommend using exponential backoff)
-            print(f"OpenAI API request exceeded rate limit: {e}")
-            pass
-        except openai.error.ServiceUnavailableError as e:
-            #Handle rate limit error (we recommend using exponential backoff)
-            print(f"OpenAI API request exceeded rate limit: {e}; waiting for {wait_time} seconds")
             time.sleep(wait_time)
             pass
         # except Exception as e:
@@ -172,6 +192,8 @@ def run_chatgpt(query, num_gen=1, num_tokens_request=1000,
 def run_chatgpt_with_examples(query, examples, input, num_gen=1, num_tokens_request=1000, use_16k=False, wait_time = 1, temperature=1.0):
 
     completion = None
+    client = _get_openai_client()
+    retryable_errors = _openai_retryable_errors()
     
     messages = [
         {"role": "system", "content": query}
@@ -190,30 +212,16 @@ def run_chatgpt_with_examples(query, examples, input, num_gen=1, num_tokens_requ
     while completion is None:
         wait_time = wait_time * 2
         try:
-            completion = openai.ChatCompletion.create(
+            completion = client.chat.completions.create(
                 model="gpt-3.5-turbo" if not use_16k else "gpt-3.5-turbo-16k",
                 temperature = temperature,
                 max_tokens = num_tokens_request,
                 n=num_gen,
                 messages = messages
             )
-        except openai.error.APIError as e:
+        except retryable_errors as e:
             #Handle API error here, e.g. retry or log
             print(f"OpenAI API returned an API Error: {e}; waiting for {wait_time} seconds")
-            time.sleep(wait_time)
-            pass
-        except openai.error.APIConnectionError as e:
-            #Handle connection error here
-            print(f"Failed to connect to OpenAI API: {e}; waiting for {wait_time} seconds")
-            time.sleep(wait_time)
-            pass
-        except openai.error.RateLimitError as e:
-            #Handle rate limit error (we recommend using exponential backoff)
-            print(f"OpenAI API request exceeded rate limit: {e}")
-            pass
-        except openai.error.ServiceUnavailableError as e:
-            #Handle rate limit error (we recommend using exponential backoff)
-            print(f"OpenAI API request exceeded rate limit: {e}; waiting for {wait_time} seconds")
             time.sleep(wait_time)
             pass
     

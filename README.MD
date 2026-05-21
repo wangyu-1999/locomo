@@ -52,6 +52,12 @@ See `scripts/generate_conversations.py` for details on the various parameters th
 
 ### Evaluate open-source and closed-source LLMs on the LoCoMo Question Answering Task with the (truncated) conversation as context
 
+* Evaluate OpenAI-compatible custom models
+```
+bash scripts/evaluate_custom_openai.sh
+```
+Before running, set `OPENAI_CHAT_MODEL` to your provider's model id.
+
 * Evaluate OpenAI models
 ```
 bash scripts/evaluate_gpts.sh
