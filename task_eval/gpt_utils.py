@@ -4,7 +4,8 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import pickle
 import random
-import os, json
+import os
+import json
 from tqdm import tqdm
 import time
 from global_methods import run_chatgpt
@@ -12,14 +13,7 @@ from task_eval.rag_utils import get_embeddings
 import tiktoken
 import numpy as np
 
-MAX_LENGTH={'gpt-4-turbo': 128000,
-            'gpt-4': 4096,
-            'gpt-3.5-turbo-16k': 16000,
-            'gpt-3.5-turbo-12k': 12000,
-            'gpt-3.5-turbo-8k': 8000,
-            'gpt-3.5-turbo-4k': 4000,
-            'gpt-3.5-turbo': 4096,
-            'gpt-4-32k': 320000}
+MAX_LENGTH={'gpt-3.5-turbo': 320000}
 PER_QA_TOKEN_BUDGET = 50
 
 QA_PROMPT = """
