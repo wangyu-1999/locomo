@@ -2,8 +2,8 @@ import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-import time
-import os, json
+import os
+import json
 import torch
 from tqdm import tqdm
 from global_methods import get_openai_embedding, set_openai_key, run_chatgpt_with_examples
@@ -71,41 +71,7 @@ def init_context_model(retriever):
         raise ValueError
     
 def init_query_model(retriever):
-
-    if retriever == 'dpr':
-        from transformers import DPRConfig, DPRContextEncoder, DPRQuestionEncoder, DPRQuestionEncoderTokenizer, DPRContextEncoderTokenizer
-        question_tokenizer = DPRQuestionEncoderTokenizer.from_pretrained("facebook/dpr-question_encoder-single-nq-base")
-        question_model = DPRQuestionEncoder.from_pretrained("facebook/dpr-question_encoder-single-nq-base").cuda()
-        question_model.eval()
-        return question_tokenizer, question_model
-
-    elif retriever == 'contriever':
-
-        from transformers import AutoTokenizer, AutoModel
-        question_tokenizer = context_tokenizer
-        question_model = AutoModel.from_pretrained('facebook/contriever').cuda()
-        question_model.eval()
-        return question_tokenizer, question_model
-
-    elif retriever == 'dragon':
-
-        from transformers import AutoTokenizer, AutoModel
-        context_tokenizer = AutoTokenizer.from_pretrained('facebook/dragon-plus-query-encoder')
-        question_model = AutoModel.from_pretrained('facebook/dragon-plus-query-encoder').cuda()
-        question_tokenizer = context_tokenizer
-        return question_tokenizer, question_model
-
-    elif retriever == 'remote':
-        # remote embeddings are provided by an external API; no local model needed
-        return None, None
-
-    elif retriever == 'openai':
-
-        set_openai_key()
-        return None, None
-    
-    else:
-        raise ValueError
+    return None, None
 
 
 def get_embeddings(retriever, inputs, mode='context'):

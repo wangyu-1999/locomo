@@ -190,11 +190,6 @@ def get_input_context(data, num_question_tokens, encoding, args):
         if stop:
             break
         
-        # if min_session == -1:
-        #     print("Saved %s tokens in query conversation from full conversation" % len(encoding.encode(query_conv)))
-        # else:
-        #     print("Saved %s conv. tokens + %s question tokens in query from %s out of %s sessions" % (len(encoding.encode(query_conv)), num_question_tokens, max_session-min_session, max_session))
-
     return query_conv
 
 
