@@ -57,6 +57,11 @@ def init_context_model(retriever):
         context_model = AutoModel.from_pretrained('facebook/dragon-plus-context-encoder').cuda()
         return context_tokenizer, context_model
 
+    elif retriever == 'remote':
+
+        # remote embeddings are provided by an external API; no local model needed
+        return None, None
+
     elif retriever == 'openai':
 
         set_openai_key()
@@ -89,6 +94,10 @@ def init_query_model(retriever):
         question_model = AutoModel.from_pretrained('facebook/dragon-plus-query-encoder').cuda()
         question_tokenizer = context_tokenizer
         return question_tokenizer, question_model
+
+    elif retriever == 'remote':
+        # remote embeddings are provided by an external API; no local model needed
+        return None, None
 
     elif retriever == 'openai':
 
@@ -130,6 +139,13 @@ def get_embeddings(retriever, inputs, mode='context'):
                 embeddings = encoder(**ctx_input).last_hidden_state[:, 0, :]
                 # all_embeddings.append(torch.nn.functional.normalize(embeddings, dim=-1))
                 all_embeddings.append(embeddings)
+            elif retriever == 'remote':
+                from global_methods import get_remote_embedding
+                chunk = inputs[i:(i+batch_size)]
+                emb = get_remote_embedding(chunk)
+                emb_t = torch.tensor(emb, dtype=torch.float32)
+                emb_t = torch.nn.functional.normalize(emb_t, dim=-1)
+                all_embeddings.append(emb_t)
             elif retriever == 'openai':
                 all_embeddings.append(torch.tensor(get_openai_embedding(inputs)))
             else:
@@ -180,6 +196,11 @@ def get_context_embeddings(retriever, data, context_tokenizer, context_encoder, 
                     ctx_input = context_tokenizer(contexts, padding=True, truncation=True, return_tensors='pt')
                     embeddings = context_encoder(**ctx_input).last_hidden_state[:, 0, :]
                     context_embeddings.append(torch.nn.functional.normalize(embeddings, dim=-1))
+                elif retriever == 'remote':
+                    from global_methods import get_remote_embedding
+                    emb = get_remote_embedding(contexts)
+                    emb_t = torch.tensor(emb, dtype=torch.float32)
+                    context_embeddings.append(torch.nn.functional.normalize(emb_t, dim=-1))
                 elif retriever == 'openai':
                     context_embeddings.append(torch.tensor(get_openai_embedding(contexts)))
                 else:

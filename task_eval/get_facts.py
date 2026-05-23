@@ -28,7 +28,7 @@ def parse_args():
 def main():
 
     
-    # set openai API key
+    # set openai API key (only needed for some components that call OpenAI)
     set_openai_key()
 
     # get arguments
@@ -42,6 +42,8 @@ def main():
         out_samples = {d['sample_id']: d for d in json.load(open(args.out_file))}
     else:
         out_samples = {}
+
+    dataset_prefix = os.path.splitext(os.path.split(args.data_file)[-1])[0]
 
     for data in samples:
 
@@ -59,11 +61,17 @@ def main():
         for i in tqdm(range(min(session_nums), max(session_nums) + 1), desc='Generating observations for %s' % data['sample_id']):
 
             # get the observations
-            if 'session_%s_observation' % i not in output or args.overwrite:
-                facts = get_session_facts(args, data['conversation'], data['conversation'], i, return_embeddings=False)
-                output['session_%s_observation' % i] = facts
+            session_obs_key = 'session_%s_observation' % i
+            # prefer observations already present in the data file (no LLM call)
+            if ('observation' in data) and (session_obs_key in data['observation']):
+                facts = data['observation'][session_obs_key]
+                output[session_obs_key] = facts
             else:
-                facts = output['session_%s_observation' % i]
+                if session_obs_key not in output or args.overwrite:
+                    facts = get_session_facts(args, data['conversation'], data['conversation'], i, return_embeddings=False)
+                    output[session_obs_key] = facts
+                else:
+                    facts = output[session_obs_key]
 
             date_time = data['conversation']['session_%s_date_time' % i]
             for k, v in facts.items():
@@ -92,7 +100,11 @@ def main():
                             'dia_id': context_ids,
                             'context': observations}
 
-        with open(args.out_file.replace('.json', '_%s.pkl' % data['sample_id']), 'wb') as f:
+        # ensure emb_dir is set; default to directory of out_file if empty
+        emb_dir = args.emb_dir if args.emb_dir else os.path.dirname(args.out_file)
+        os.makedirs(emb_dir, exist_ok=True)
+        pkl_path = os.path.join(emb_dir, '%s_observation_%s.pkl' % (dataset_prefix, data['sample_id']))
+        with open(pkl_path, 'wb') as f:
             pickle.dump(database, f)
 
         out_samples[output['sample_id']] = output.copy()

@@ -4,6 +4,7 @@ import json
 import time
 import sys
 import os
+import requests
 
 import google.generativeai as genai
 from anthropic import Anthropic
@@ -38,6 +39,54 @@ def get_openai_embedding(texts, model="text-embedding-ada-002"):
    client = _get_openai_client()
    response = client.embeddings.create(input=texts, model=model)
    return np.array([item.embedding for item in response.data])
+
+
+def get_remote_embedding(texts, url=None, api_key=None, model=None, batch_size=64, timeout=60):
+    """Fetch embeddings from a remote embedding API.
+
+    Expects env vars (if arguments not provided):
+      OPENAI_EMBEDDING_URL, OPENAI_EMBEDDING_KEY, OPENAI_EMBEDDING_MODEL
+
+    The helper will POST JSON {"model": model, "input": [texts...]}
+    and accept responses in either OpenAI-style (`data` with `embedding`) or
+    a simple `embeddings` list. Returns a numpy array of shape (N, D).
+    """
+    url = url or os.environ.get('OPENAI_EMBEDDING_URL')
+    api_key = api_key or os.environ.get('OPENAI_EMBEDDING_KEY')
+    model = model or os.environ.get('OPENAI_EMBEDDING_MODEL')
+    if url is None:
+        raise ValueError('No embedding URL provided (OPENAI_EMBEDDING_URL)')
+
+    headers = {'Content-Type': 'application/json'}
+    if api_key:
+        headers['Authorization'] = f'Bearer {api_key}'
+
+    embeddings = []
+    for i in range(0, len(texts), batch_size):
+        chunk = texts[i:i+batch_size]
+        payload = {"input": chunk}
+        if model:
+            payload["model"] = model
+        resp = requests.post(url, json=payload, headers=headers, timeout=timeout)
+        resp.raise_for_status()
+        data = resp.json()
+        # try OpenAI style
+        if isinstance(data, dict) and 'data' in data and isinstance(data['data'], list):
+            for item in data['data']:
+                if 'embedding' in item:
+                    embeddings.append(item['embedding'])
+                elif 'embeddings' in item:
+                    embeddings.append(item['embeddings'])
+                else:
+                    raise ValueError('Unexpected response item for embedding')
+        elif isinstance(data, dict) and 'embeddings' in data:
+            embeddings.extend(data['embeddings'])
+        elif isinstance(data, list):
+            embeddings.extend(data)
+        else:
+            raise ValueError('Unexpected response format from embedding service')
+
+    return np.array(embeddings, dtype=float)
 
 def set_anthropic_key():
     pass
