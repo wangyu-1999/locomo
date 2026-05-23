@@ -180,62 +180,23 @@ def run_chatgpt(query, num_gen=1, num_tokens_request=1000,
     while completion is None:
         wait_time = wait_time * 2
         try:
-            # if model == 'davinci':
-            #     completion = openai.Completion.create(
-            #                     # model = "gpt-3.5-turbo",
-            #                     model = "text-davinci-003",
-            #                     temperature = temperature,
-            #                     max_tokens = num_tokens_request,
-            #                     n=num_gen,
-            #                     prompt=query
-            #                 )
-            if model == 'chatgpt':
-                chat_model = os.environ.get('OPENAI_CHAT_MODEL', 'gpt-3.5-turbo')
-                messages = [
-                        {"role": "system", "content": query}
-                    ]
-                completion = client.chat.completions.create(
-                    model=chat_model,
-                    temperature = temperature,
-                    max_tokens = num_tokens_request,
-                    n=num_gen,
-                    messages = messages
-                )
-            elif 'gpt-4' in model:
-                completion = client.chat.completions.create(
-                    model=model,
-                    temperature = temperature,
-                    max_tokens = num_tokens_request,
-                    n=num_gen,
-                    messages = [
-                        {"role": "user", "content": query}
-                    ]
-                )
-            else:
-                print("Did not find model %s" % model)
-                raise ValueError
+            chat_model = os.environ.get('OPENAI_CHAT_MODEL', 'gpt-3.5-turbo')
+            messages = [
+                    {"role": "system", "content": query}
+                ]
+            completion = client.chat.completions.create(
+                model=chat_model,
+                temperature = temperature,
+                max_tokens = num_tokens_request,
+                n=num_gen,
+                messages = messages
+            )
         except retryable_errors as e:
-            #Handle API error here, e.g. retry or log
             print(f"OpenAI API returned an API Error: {e}; waiting for {wait_time} seconds")
             time.sleep(wait_time)
             pass
-        # except Exception as e:
-        #     if e:
-        #         print(e)
-        #         print(f"Timeout error, retrying after waiting for {wait_time} seconds")
-        #         time.sleep(wait_time)
     
-
-    if model == 'davinci':
-        outputs = [choice.get('text').strip() for choice in completion.get('choices')]
-        if num_gen > 1:
-            return outputs
-        else:
-            # print(outputs[0])
-            return outputs[0]
-    else:
-        # print(completion.choices[0].message.content)
-        return completion.choices[0].message.content
+    return completion.choices[0].message.content
     
 
 def run_chatgpt_with_examples(query, examples, input, num_gen=1, num_tokens_request=1000, use_16k=False, wait_time = 1, temperature=1.0):
