@@ -47,28 +47,8 @@ def main():
             os.makedirs(preds_dir_early, exist_ok=True)
         
     print("******************  Evaluating Model %s ***************" % args.model)
-
-    if 'gpt' in args.model:
-        # set openai API key
-        set_openai_key()
-
-    elif 'claude' in args.model:
-        # set openai API key
-        set_anthropic_key()
-
-    elif 'gemini' in args.model:
-        # set openai API key
-        set_gemini_key()
-        if args.model == "gemini-pro-1.0":
-            model_name = "models/gemini-1.0-pro-latest"
-
-        gemini_model = genai.GenerativeModel(model_name)
     
-    elif any([model_name in args.model for model_name in ['gemma', 'llama', 'mistral']]):
-        hf_pipeline, hf_model_name = init_hf_model(args)
-
-    else:
-        raise NotImplementedError
+    set_openai_key()
 
 
     # load conversations
@@ -90,17 +70,7 @@ def main():
         else:
             out_data['qa'] = data['qa'].copy()
 
-        if 'gpt' in args.model:
-            # get answers for each sample
-            answers = get_gpt_answers(data, out_data, prediction_key, args)
-        elif 'claude' in args.model:
-            answers = get_claude_answers(data, out_data, prediction_key, args)
-        elif 'gemini' in args.model:
-            answers = get_gemini_answers(gemini_model, data, out_data, prediction_key, args)
-        elif any([model_name in args.model for model_name in ['gemma', 'llama', 'mistral']]):
-            answers = get_hf_answers(data, out_data, args, hf_pipeline, hf_model_name)
-        else:
-            raise NotImplementedError
+        answers = get_gpt_answers(data, out_data, prediction_key, args)
 
         # evaluate individual QA samples and save the score
         exact_matches, lengths, recall = eval_question_answering(answers['qa'], prediction_key)

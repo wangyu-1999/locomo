@@ -51,11 +51,8 @@ def main():
         date_times = []
         context_ids = []
 
-        # check for existing output
-        if data['sample_id'] in out_samples:
-            output = out_samples['sample_id']
-        else:
-            output = {'sample_id': data['sample_id']}
+
+        output = out_samples[data['sample_id']]
 
         session_nums = [int(k.split('_')[-1]) for k in data['conversation'].keys() if 'session' in k and 'date_time' not in k]
         for i in tqdm(range(min(session_nums), max(session_nums) + 1), desc='Generating observations for %s' % data['sample_id']):

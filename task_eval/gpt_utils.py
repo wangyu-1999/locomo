@@ -201,7 +201,11 @@ def get_input_context(data, num_question_tokens, encoding, args):
 def get_gpt_answers(in_data, out_data, prediction_key, args):
 
 
-    encoding = tiktoken.encoding_for_model('gpt-3.5-turbo-16k' if any([k in args.model for k in ['16k', '12k', '8k', '4k']]) else args.model)
+    model_for_tokenizer = 'gpt-3.5-turbo-16k' if any([k in args.model for k in ['16k', '12k', '8k', '4k']]) else args.model
+    try:
+        encoding = tiktoken.encoding_for_model(model_for_tokenizer)
+    except KeyError:
+        encoding = tiktoken.get_encoding('cl100k_base')
     assert len(in_data['qa']) == len(out_data['qa']), (len(in_data['qa']), len(out_data['qa']))
 
     # start instruction prompt
@@ -279,9 +283,9 @@ def get_gpt_answers(in_data, out_data, prediction_key, args):
 
             query = query_conv + '\n\n' + QA_PROMPT.format(questions[0]) if len(cat_5_idxs) == 0 else query_conv + '\n\n' + QA_PROMPT_CAT_5.format(questions[0])
             answer = run_chatgpt(query, num_gen=1, num_tokens_request=32, 
-                    model='chatgpt' if 'gpt-3.5' in args.model else args.model, 
-                    use_16k=True if any([k in args.model for k in ['16k', '12k', '8k', '4k']]) else False, 
-                    temperature=0, wait_time=2)
+                model=args.model, 
+                use_16k=True if any([k in args.model for k in ['16k', '12k', '8k', '4k']]) else False, 
+                temperature=0, wait_time=2)
             
             if len(cat_5_idxs) > 0:
                 answer = get_cat_5_answer(answer, cat_5_answers[0])
@@ -322,9 +326,9 @@ def get_gpt_answers(in_data, out_data, prediction_key, args):
                     # print("Sending query of %s tokens" % len(encoding.encode(query)))
                     # print("Trying with answer token budget = %s per question" % PER_QA_TOKEN_BUDGET)
                     answer = run_chatgpt(query, num_gen=1, num_tokens_request=args.batch_size*PER_QA_TOKEN_BUDGET, 
-                    model='chatgpt' if 'gpt-3.5' in args.model else args.model, 
-                    use_16k=True if any([k in args.model for k in ['16k', '12k', '8k', '4k']]) else False, 
-                    temperature=0, wait_time=2)
+                        model=args.model, 
+                        use_16k=True if any([k in args.model for k in ['16k', '12k', '8k', '4k']]) else False, 
+                        temperature=0, wait_time=2)
                     answer = answer.replace('\\"', "'").replace('json','').replace('`','').strip().replace("\\'", "")
                     answers = process_ouput(answer.strip())
                     break
