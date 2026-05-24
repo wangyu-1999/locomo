@@ -387,5 +387,3 @@ def get_gpt_answers(in_data, out_data, prediction_key, args):
                 args, query_conv, question_prompt, include_idxs, cat_5_idxs, cat_5_answers, 
                 out_data, prediction_key, llm_model, use_16k
             )
-
-    return out_data
