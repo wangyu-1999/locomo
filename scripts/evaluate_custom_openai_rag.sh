@@ -11,19 +11,20 @@ python task_eval/get_facts.py \
 	--out-file "$OUT_DIR/$OBS_OUTPUT_FILE" \
 	--prompt-dir "$PROMPT_DIR" \
 	--emb-dir "$EMB_DIR" \
+    --overwrite \
 	--use-date \
-	--overwrite \
 	--retriever remote
+
 
 python task_eval/evaluate_qa.py \
 	--data-file "$DATA_FILE_PATH" \
 	--out-file "$OUT_DIR/$QA_OUTPUT_FILE" \
-	--model "$OPENAI_CHAT_MODEL" \
+    --emb-dir "$EMB_DIR" \
+    --preds-file "$OUT_DIR/$PREDS_FILE" \
+    --overwrite \
+    --model "$OPENAI_CHAT_MODEL" \
 	--batch-size 1 \
-	--overwrite \
-	--preds-file "$OUT_DIR/preds.jsonl" \
 	--use-rag \
+    --rag-mode observation \
 	--retriever remote \
-	--top-k 5 \
-	--emb-dir "$EMB_DIR" \
-	--rag-mode observation
+	--top-k 5

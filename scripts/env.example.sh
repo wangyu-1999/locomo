@@ -11,6 +11,7 @@ DATA_FILE_PATH=./data/locomo10.json
 QA_OUTPUT_FILE=locomo10_qa.json
 OBS_OUTPUT_FILE=locomo10_observation.json
 SESS_SUMM_OUTPUT_FILE=locomo10_session_summary.json
+PREDS_FILE=preds.jsonl
 
 # path to folder containing prompts and in-context examples
 PROMPT_DIR=./prompt_examples
@@ -20,11 +21,6 @@ export OPENAI_API_KEY=
 export OPENAI_BASE_URL=
 export OPENAI_CHAT_MODEL=
 
-# Google API Key
-export GOOGLE_API_KEY=
-
-# Anthropic API Key
-export ANTHROPIC_API_KEY=
-
-# HuggingFace Token
-export HF_TOKEN=
+export OPENAI_EMBEDDING_KEY=
+export OPENAI_EMBEDDING_URL=
+export OPENAI_EMBEDDING_MODEL=
