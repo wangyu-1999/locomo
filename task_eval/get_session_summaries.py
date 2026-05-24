@@ -1,17 +1,18 @@
 import sys
 from pathlib import Path
-sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from tqdm import tqdm
-import argparse
-import os
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
 import json
+import pickle
+import argparse
+from tqdm import tqdm
+
 from global_methods import set_openai_key, run_chatgpt
 from task_eval.rag_utils import get_embeddings
-import pickle
+
 
 def parse_args():
-
     parser = argparse.ArgumentParser()
     parser.add_argument('--out-file', type=str, required=True)
     parser.add_argument('--data-file', type=str, required=True)
@@ -21,94 +22,123 @@ def parse_args():
     parser.add_argument('--overwrite', action="store_true", help="set flag to overwrite existing outputs")
     parser.add_argument('--retriever', type=str, default="dragon")
 
-    args = parser.parse_args()
-    return args
+    return parser.parse_args()
 
 
 def get_summary_query(session, date_time):
-    conv = ''
-    conv = conv + date_time + '\n'
+    conv_lines = [f"{date_time}\n"]
+    
     for dialog in session:
-        conv = conv + dialog['speaker'] + ' said, \"' + dialog['text'] + '\"'
+        speaker = dialog.get('speaker', '')
+        text = dialog.get('text', '')
+        line = f"{speaker} said, \"{text}\""
+        
         if 'blip_caption' in dialog:
-            conv += 'and shared ' + dialog['blip_caption'] + '.'
-        conv = conv + '\n'
+            line += f" and shared {dialog['blip_caption']}."
+        
+        conv_lines.append(line + "\n")
 
-    query = "Generate a concise summary of the following conversation using exact words from the conversation wherever possible. The summary should contain all facts about the two speakers, as well as references to time.\n"
-    query = query + conv + "\n"
+    conv_text = "".join(conv_lines)
+    
+    query = (
+        "Generate a concise summary of the following conversation using exact words "
+        "from the conversation wherever possible. The summary should contain all facts "
+        "about the two speakers, as well as references to time.\n"
+        f"{conv_text}\n"
+    )
     return query
 
 
 def get_session_summary(session, date_time):
     query = get_summary_query(session, date_time)
-    session_summary = run_chatgpt(query, num_gen=1, num_tokens_request=256, 
-                                model='chatgpt', use_16k=False, 
-                                temperature=1.0, wait_time=2)
+    session_summary = run_chatgpt(
+        query, 
+        num_gen=1, 
+        num_tokens_request=256, 
+        model='chatgpt', 
+        use_16k=False, 
+        temperature=1.0, 
+        wait_time=2
+    )
     return session_summary
 
 
 def main():
-
-    
-    # set openai API key
     set_openai_key()
-
-    # get arguments
     args = parse_args()
 
-    # load conversations
-    samples = json.load(open(args.data_file))
+    data_file_path = Path(args.data_file)
+    out_file_path = Path(args.out_file)
 
-    # load the output file if it exists to check for overwriting
-    if os.path.exists(args.out_file):
-        out_samples = {d['sample_id']: d for d in json.load(open(args.out_file))}
-    else:
-        out_samples = {}
+    with open(data_file_path, 'r', encoding='utf-8') as f:
+        samples = json.load(f)
+
+    out_samples = {}
+    if out_file_path.exists():
+        with open(out_file_path, 'r', encoding='utf-8') as f:
+            out_samples = {d['sample_id']: d for d in json.load(f)}
 
     for data in samples:
-
+        sample_id = data['sample_id']
         summaries = []
         date_times = []
         context_ids = []
 
-        # check for existing output
-        if data['sample_id'] in out_samples:
-            output = out_samples[data['sample_id']]
-        else:
-            output = {'sample_id': data['sample_id']}
+        # 获取已有结果，避免不必要的 copy
+        output = out_samples.get(sample_id, {'sample_id': sample_id})
 
-        session_nums = [int(k.split('_')[-1]) for k in data['conversation'].keys() if 'session' in k and 'date_time' not in k]
-        for i in tqdm(range(min(session_nums), max(session_nums) + 1), desc='Generating summaries for %s' % data['sample_id']):
+        # 提取 session 编号
+        conversation = data.get('conversation', {})
+        session_nums = [
+            int(k.split('_')[-1]) 
+            for k in conversation.keys() 
+            if 'session' in k and 'date_time' not in k
+        ]
+        
+        if not session_nums:
+            continue
+            
+        min_sess, max_sess = min(session_nums), max(session_nums)
 
-            # get the summaries
-            if 'session_%s_summary' % i not in output or args.overwrite:
-                summary = get_session_summary(data['conversation']['session_%s' % i], data['conversation']['session_%s_date_time' % i])
-                output['session_%s_summary' % i] = summary
+        for i in tqdm(range(min_sess, max_sess + 1), desc=f'Generating summaries for {sample_id}'):
+            summary_key = f'session_{i}_summary'
+            session_key = f'session_{i}'
+            datetime_key = f'session_{i}_date_time'
+            
+            # 生成或读取 summary
+            if summary_key not in output or args.overwrite:
+                summary = get_session_summary(conversation[session_key], conversation[datetime_key])
+                output[summary_key] = summary
             else:
-                summary = output['session_%s_summary' % i]
+                summary = output[summary_key]
 
-            date_time = data['conversation']['session_%s_date_time' % i]
+            # 收集结果
+            date_time = conversation[datetime_key]
             summaries.append(summary)
             date_times.append(date_time)
-            context_ids.append('S%s'%i)
+            context_ids.append(f'S{i}')
 
-            print("Getting embeddings for %s summaries" % len(summaries))
-            embeddings = get_embeddings(args.retriever, summaries, 'context')
-            assert embeddings.shape[0] == len(summaries)
-            database = {'embeddings': embeddings,
-                                'date_time': date_times,
-                                'dia_id': context_ids,
-                                'context': summaries}
+        print(f"Getting embeddings for {len(summaries)} summaries in sample {sample_id}...")
+        embeddings = get_embeddings(args.retriever, summaries, 'context')
+        assert embeddings.shape[0] == len(summaries), "Embeddings dimension mismatch!"
+        
+        database = {
+            'embeddings': embeddings,
+            'date_time': date_times,
+            'dia_id': context_ids,
+            'context': summaries
+        }
 
-
-        with open(args.out_file.replace('.json', '_%s.pkl' % data['sample_id']), 'wb') as f:
+        pkl_path = out_file_path.with_name(f"{out_file_path.stem}_{sample_id}.pkl")
+        with open(pkl_path, 'wb') as f:
             pickle.dump(database, f)
 
-        out_samples[output['sample_id']] = output.copy()
+        out_samples[sample_id] = output
     
-    with open(args.out_file, 'w') as f:
-        json.dump(list(out_samples.values()), f, indent=2)
+    # 全部跑完后，安全保存一份全量 JSON
+    with open(out_file_path, 'w', encoding='utf-8') as f:
+        json.dump(list(out_samples.values()), f, indent=2, ensure_ascii=False)
 
 
-main()
-
+if __name__ == '__main__':
+    main()
