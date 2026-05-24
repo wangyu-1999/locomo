@@ -440,10 +440,7 @@ def get_session(agent_a, agent_b, args, prev_date_time_string='', curr_date_time
 
 
 def main():
-
-    # get arguments
     args = parse_args()
-
     set_openai_key()
 
     args.emb_file = os.path.join(args.out_dir, args.emb_file)

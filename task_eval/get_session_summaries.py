@@ -64,8 +64,8 @@ def get_session_summary(session, date_time):
 
 
 def main():
-    set_openai_key()
     args = parse_args()
+    set_openai_key()
 
     data_file_path = Path(args.data_file)
     out_file_path = Path(args.out_file)

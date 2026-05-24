@@ -9,7 +9,6 @@ import openai
 
 _OPENAI_CLIENT = None
 
-
 def _get_openai_client():
     global _OPENAI_CLIENT
     if _OPENAI_CLIENT is None:
@@ -18,7 +17,6 @@ def _get_openai_client():
         client_kwargs = {"api_key": api_key}
         if base_url:
             client_kwargs["base_url"] = base_url
-            
         _OPENAI_CLIENT = openai.OpenAI(**client_kwargs)
         
     return _OPENAI_CLIENT

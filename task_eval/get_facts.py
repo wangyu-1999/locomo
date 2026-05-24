@@ -123,8 +123,8 @@ def _generate_and_save_embeddings(args, sample_id, observations, date_times, con
         pickle.dump(database, f)
 
 def main():
-    set_openai_key()
     args = parse_args()
+    set_openai_key()
 
     data_file_path = Path(args.data_file)
     out_file_path = Path(args.out_file)

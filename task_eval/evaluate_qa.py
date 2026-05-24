@@ -74,13 +74,13 @@ def _evaluate_and_update_metrics(answers: Dict, prediction_key: str, model_key: 
 
 def main():
     args = parse_args()
+    set_openai_key()
 
     # 环境与路径初始化
     if args.preds_file:
         Path(args.preds_file).parent.mkdir(parents=True, exist_ok=True)
     
     print(f"****************** Evaluating Model {args.model} ***************")
-    set_openai_key()
 
     # 获取配置 Keys 与加载数据
     model_key, prediction_key = _get_metric_keys(args)
