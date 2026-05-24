@@ -73,7 +73,7 @@ def main():
 
         # check for existing output
         if data['sample_id'] in out_samples:
-            output = out_samples['sample_id']
+            output = out_samples[data['sample_id']]
         else:
             output = {'sample_id': data['sample_id']}
 
