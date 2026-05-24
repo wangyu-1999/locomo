@@ -4,8 +4,8 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from tqdm import tqdm
 import argparse
-import os, json
-from generative_agents.memory_utils import get_session_facts
+import os
+import json
 from global_methods import set_openai_key, run_chatgpt
 from task_eval.rag_utils import get_embeddings
 import pickle
