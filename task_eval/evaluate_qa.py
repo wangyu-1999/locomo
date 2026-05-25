@@ -22,7 +22,6 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument('--rag-mode', type=str, default="")
     parser.add_argument('--emb-dir', type=str, default="")
     parser.add_argument('--top-k', type=int, default=5)
-    parser.add_argument('--retriever', type=str, default="remote")
     parser.add_argument('--overwrite', action="store_true")
     parser.add_argument('--preds-file', type=str, default="", help='Optional path to append per-inference predictions as JSONL')
     return parser.parse_args()

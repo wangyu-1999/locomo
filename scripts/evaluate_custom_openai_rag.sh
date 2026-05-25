@@ -12,8 +12,7 @@ python task_eval/get_facts.py \
 	--prompt-dir "$PROMPT_DIR" \
 	--emb-dir "$EMB_DIR" \
     --overwrite \
-	--use-date \
-	--retriever remote
+	--use-date
 
 
 python task_eval/evaluate_qa.py \
@@ -26,5 +25,4 @@ python task_eval/evaluate_qa.py \
 	--batch-size 1 \
 	--use-rag \
     --rag-mode observation \
-	--retriever remote \
 	--top-k 5

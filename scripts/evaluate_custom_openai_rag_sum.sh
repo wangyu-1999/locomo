@@ -12,8 +12,7 @@ python task_eval/get_session_summaries.py \
 	--prompt-dir "$PROMPT_DIR" \
 	--emb-dir "$EMB_DIR" \
 	--overwrite \
-	--use-date \
-	--retriever remote
+	--use-date
 
 python task_eval/evaluate_qa.py \
 	--data-file "$DATA_FILE_PATH" \
@@ -25,5 +24,4 @@ python task_eval/evaluate_qa.py \
 	--batch-size 1 \
 	--use-rag \
 	--rag-mode summary \
-	--retriever remote \
 	--top-k 5

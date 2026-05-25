@@ -25,7 +25,6 @@ def parse_args():
     parser.add_argument('--prompt-dir', type=str, default="")
     parser.add_argument('--use-date', action="store_true")
     parser.add_argument('--overwrite', action="store_true", help="set flag to overwrite existing outputs")
-    parser.add_argument('--retriever', type=str, default="remote")
 
     return parser.parse_args()
 
