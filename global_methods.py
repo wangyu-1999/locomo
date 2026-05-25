@@ -98,8 +98,8 @@ def run_json_trials(query, num_gen=1, num_tokens_request=1000,
                 )
             else:
                 output = run_chatgpt(
-                    query, num_gen=num_gen, wait_time=wait_time, model=model,
-                    num_tokens_request=num_tokens_request, use_16k=use_16k, temperature=temperature
+                    query, num_gen=num_gen, wait_time=wait_time,
+                    num_tokens_request=num_tokens_request, temperature=temperature
                 )
             clean_output = re.sub(r"^json)?|```$", "", output.strip(), flags=re.MULTILINE).strip()
 
@@ -114,8 +114,7 @@ def run_json_trials(query, num_gen=1, num_tokens_request=1000,
     sys.exit(1)
 
 
-def run_chatgpt(query, num_gen=1, num_tokens_request=1000, 
-                model='chatgpt', use_16k=False, temperature=1.0, wait_time=1):
+def run_chatgpt(query, num_gen=1, num_tokens_request=1000, temperature=1.0, wait_time=1):
 
     client = _get_openai_client()
     retryable_errors = _openai_retryable_errors()

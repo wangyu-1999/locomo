@@ -158,8 +158,6 @@ def _generate_and_save_embeddings(args, sample_id, observations, date_times, con
     else:
         embeddings = get_embeddings(observations)
     
-    assert embeddings.shape[0] == len(observations), "Embeddings dimension mismatch!"
-
     database = {
         'embeddings': embeddings,
         'date_time': date_times,

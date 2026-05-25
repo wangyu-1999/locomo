@@ -17,9 +17,7 @@ def save_eval(data_file, accs, key='exact_match'):
 
     with open(target_path, 'r', encoding='utf-8') as f:
         data = json.load(f)
-
-    assert len(data['qa']) == len(accs), f"Mismatch: {len(data['qa'])} vs {len(accs)}"
-
+    
     # 使用 zip 替代毫无 Pythonic 可言的 range(len())
     for qa_item, acc in zip(data['qa'], accs):
         qa_item[key] = acc

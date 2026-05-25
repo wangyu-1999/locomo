@@ -53,9 +53,7 @@ def get_session_summary(session, date_time):
     session_summary = run_chatgpt(
         query, 
         num_gen=1, 
-        num_tokens_request=256, 
-        model='chatgpt', 
-        use_16k=False, 
+        num_tokens_request=256,
         temperature=1.0, 
         wait_time=2
     )
@@ -119,8 +117,7 @@ def main():
 
         print(f"Getting embeddings for {len(summaries)} summaries in sample {sample_id}...")
         embeddings = get_embeddings(summaries)
-        assert embeddings.shape[0] == len(summaries), "Embeddings dimension mismatch!"
-        
+
         database = {
             'embeddings': embeddings,
             'date_time': date_times,

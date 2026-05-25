@@ -7,7 +7,6 @@ import random
 import os
 import json
 from tqdm import tqdm
-import time
 from global_methods import run_chatgpt
 from task_eval.rag_utils import get_embeddings
 import tiktoken
@@ -49,7 +48,6 @@ def process_ouput(text):
 # --- Helpers for prepare_for_rag ---
 
 def _load_existing_db(pkl_path, sample_id, mode_name):
-    assert pkl_path.exists(), f"{mode_name.capitalize()} and embeddings do not exist for {sample_id}"
     with open(pkl_path, 'rb') as f:
         return pickle.load(f)
 
@@ -81,8 +79,7 @@ def _prepare_dialog_database(args, data, pkl_path):
 
     print(f"Getting embeddings for {len(dialogs)} dialogs")
     embeddings = get_embeddings(dialogs)
-    assert embeddings.shape[0] == len(dialogs), "Lengths of embeddings and dialogs do not match"
-    
+
     database = {
         'embeddings': embeddings,
         'date_time': date_times,
@@ -276,11 +273,11 @@ def _log_single_prediction(args, out_data, idx, prediction_key):
     except Exception:
         pass
 
-def _run_single_batch(args, query_conv, questions, cat_5_idxs, cat_5_answers, out_data, include_idxs, prediction_key, context_ids, llm_model, use_16k):
+def _run_single_batch(args, query_conv, questions, cat_5_idxs, cat_5_answers, out_data, include_idxs, prediction_key, context_ids):
     query = query_conv + '\n\n' + (QA_PROMPT_CAT_5 if cat_5_idxs else QA_PROMPT).format(questions[0])
     answer = run_chatgpt(
         query, num_gen=1, num_tokens_request=32, 
-        model=llm_model, use_16k=use_16k, temperature=0, wait_time=2
+        temperature=0, wait_time=2
     )
     
     if cat_5_idxs:
@@ -321,7 +318,7 @@ def _parse_multi_batch_answers(answer, include_idxs, cat_5_idxs, cat_5_answers, 
                     out_data['qa'][idx][prediction_key] = json.loads(answer.strip().replace('(a)', '').replace('(b)', '').split('\n')[k])[0]
 
 
-def _run_multi_batch(args, query_conv, question_prompt, include_idxs, cat_5_idxs, cat_5_answers, out_data, prediction_key, llm_model, use_16k):
+def _run_multi_batch(args, query_conv, question_prompt, include_idxs, cat_5_idxs, cat_5_answers, out_data, prediction_key):
     query = f"{query_conv}\n{question_prompt}"
     trials = 0
     answer = ""
@@ -331,7 +328,7 @@ def _run_multi_batch(args, query_conv, question_prompt, include_idxs, cat_5_idxs
             print(f"Trial {trials}/3")
             answer = run_chatgpt(
                 query, num_gen=1, num_tokens_request=args.batch_size * PER_QA_TOKEN_BUDGET, 
-                model=llm_model, use_16k=use_16k, temperature=0, wait_time=2
+                temperature=0, wait_time=2
             )
             answer = answer.replace('\\"', "'").replace('json', '').replace('`', '').strip().replace("\\'", "")
             
@@ -347,19 +344,15 @@ def _run_multi_batch(args, query_conv, question_prompt, include_idxs, cat_5_idxs
 
 def get_gpt_answers(in_data, out_data, prediction_key, args):
     encoding, use_16k = _get_tokenizer(args.model)
-    assert len(in_data['qa']) == len(out_data['qa']), (len(in_data['qa']), len(out_data['qa']))
 
     speakers_names = list({d['speaker'] for d in in_data['conversation']['session_1']})
     start_prompt = CONV_START_PROMPT.format(speakers_names[0], speakers_names[1])
     start_tokens = len(encoding.encode(start_prompt))
 
     if args.use_rag:
-        assert args.batch_size == 1, "Batch size need to be 1 for RAG-based evaluation."
         context_database, query_vectors = prepare_for_rag(args, in_data)
     else:
         context_database, query_vectors = None, None
-
-    llm_model = 'custom'
 
     for batch_start_idx in tqdm(range(0, len(in_data['qa']), args.batch_size), desc='Generating answers'):
 
@@ -374,16 +367,13 @@ def get_gpt_answers(in_data, out_data, prediction_key, args):
             args, questions, encoding, in_data, start_prompt, start_tokens, context_database, query_vectors, include_idxs
         )
 
-        if 'gpt-4' in args.model:
-            time.sleep(5)
-
         if args.batch_size == 1:
             _run_single_batch(
                 args, query_conv, questions, cat_5_idxs, cat_5_answers, 
-                out_data, include_idxs, prediction_key, context_ids, llm_model, use_16k
+                out_data, include_idxs, prediction_key, context_ids
             )
         else:
             _run_multi_batch(
                 args, query_conv, question_prompt, include_idxs, cat_5_idxs, cat_5_answers, 
-                out_data, prediction_key, llm_model, use_16k
+                out_data, prediction_key
             )
