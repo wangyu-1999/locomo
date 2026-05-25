@@ -47,31 +47,54 @@ def process_ouput(text):
 
 # --- Helpers for prepare_for_rag ---
 
-def _load_existing_db(pkl_path, sample_id, mode_name):
+def _load_pickle_database(pkl_path):
+    """Load database from pickle file if it exists.
+
+    Args:
+        pkl_path: Path to pickle file
+
+    Returns:
+        Loaded database dict, or None if file doesn't exist
+    """
+    if not pkl_path.exists():
+        return None
+
     with open(pkl_path, 'rb') as f:
         return pickle.load(f)
 
 def _prepare_dialog_database(args, data, pkl_path):
-    if pkl_path.exists():
-        with open(pkl_path, 'rb') as f:
-            return pickle.load(f)
+    """Prepare dialog database with embeddings. Load from cache if it exists.
 
+    Args:
+        args: Command-line arguments
+        data: Sample data
+        pkl_path: Path to pickle file for caching
+
+    Returns:
+        Database dict with embeddings, date_time, dia_id, context
+    """
+    # Try to load from cache first
+    cached_db = _load_pickle_database(pkl_path)
+    if cached_db is not None:
+        return cached_db
+
+    # Generate new database
     dialogs = []
     date_times = []
     context_ids = []
     conversation = data['conversation']
     session_nums = [
-        int(k.split('_')[-1]) 
-        for k in conversation 
+        int(k.split('_')[-1])
+        for k in conversation
         if 'session' in k and 'date_time' not in k
     ]
-    
+
     for i in range(min(session_nums), max(session_nums) + 1):
         date_time = conversation[f'session_{i}_date_time']
         for dialog in conversation[f'session_{i}']:
             context_ids.append(dialog['dia_id'])
             date_times.append(date_time)
-            
+
             dialog_text = f"{dialog['speaker']} said, \"{dialog['text']}\""
             if 'blip_caption' in dialog:
                 dialog_text += f" and shared {dialog['blip_caption']}"
@@ -87,25 +110,42 @@ def _prepare_dialog_database(args, data, pkl_path):
         'context': dialogs
     }
 
+    # Save to cache
     with open(pkl_path, 'wb') as f:
         pickle.dump(database, f)
-        
+
     return database
 
 def prepare_for_rag(args, data):
+    """Prepare RAG context by loading or generating database.
+
+    Args:
+        args: Command-line arguments with rag_mode
+        data: Sample data
+
+    Returns:
+        Tuple of (database, question_embeddings)
+    """
     dataset_prefix = Path(args.data_file).stem
     emb_dir = Path(args.emb_dir)
     sample_id = data['sample_id']
 
     if args.rag_mode == "summary":
         pkl_path = emb_dir / f"{dataset_prefix}_session_summary_{sample_id}.pkl"
-        database = _load_existing_db(pkl_path, sample_id, "summaries")
+        database = _load_pickle_database(pkl_path)
+        if database is None:
+            raise FileNotFoundError(f"Summary database not found: {pkl_path}")
+
     elif args.rag_mode == 'dialog':
         pkl_path = emb_dir / f"{dataset_prefix}_dialog_{sample_id}.pkl"
         database = _prepare_dialog_database(args, data, pkl_path)
+
     elif args.rag_mode == 'observation':
         pkl_path = emb_dir / f"{dataset_prefix}_observation_{sample_id}.pkl"
-        database = _load_existing_db(pkl_path, sample_id, "observations")
+        database = _load_pickle_database(pkl_path)
+        if database is None:
+            raise FileNotFoundError(f"Observation database not found: {pkl_path}")
+
     else:
         raise ValueError(f"Unsupported rag_mode: {args.rag_mode}")
     
