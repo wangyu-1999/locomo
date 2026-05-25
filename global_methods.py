@@ -6,6 +6,7 @@ import re
 import requests
 import numpy as np
 import openai
+from tqdm import tqdm
 
 _OPENAI_CLIENT = None
 
@@ -40,7 +41,19 @@ def get_openai_embedding(texts, model="text-embedding-ada-002"):
 
 
 def get_remote_embedding(texts, url=None, api_key=None, model=None, batch_size=64, timeout=60):
-    """Fetch embeddings from a remote embedding API."""
+    """Fetch embeddings from a remote embedding API.
+
+    Args:
+        texts: List of text strings to embed
+        url: API endpoint URL (defaults to OPENAI_EMBEDDING_URL env var)
+        api_key: API key (defaults to OPENAI_EMBEDDING_KEY env var)
+        model: Model name (defaults to OPENAI_EMBEDDING_MODEL env var)
+        batch_size: Number of texts per request
+        timeout: Request timeout in seconds
+
+    Returns:
+        Numpy array of embeddings
+    """
     url = url or os.environ.get('OPENAI_EMBEDDING_URL')
     api_key = api_key or os.environ.get('OPENAI_EMBEDDING_KEY')
     model = model or os.environ.get('OPENAI_EMBEDDING_MODEL')
@@ -52,33 +65,64 @@ def get_remote_embedding(texts, url=None, api_key=None, model=None, batch_size=6
         headers['Authorization'] = f'Bearer {api_key}'
 
     embeddings = []
-    for i in range(0, len(texts), batch_size):
+    num_batches = (len(texts) + batch_size - 1) // batch_size
+
+    for i in tqdm(range(0, len(texts), batch_size), total=num_batches, desc="Getting embeddings"):
         chunk = texts[i:i+batch_size]
         payload = {"input": chunk}
         if model:
             payload["model"] = model
-            
+
         resp = requests.post(url, json=payload, headers=headers, timeout=timeout)
         resp.raise_for_status()
         data = resp.json()
-
-        # try OpenAI style
-        if isinstance(data, dict) and 'data' in data and isinstance(data['data'], list):
-            for item in data['data']:
-                if 'embedding' in item:
-                    embeddings.append(item['embedding'])
-                elif 'embeddings' in item:
-                    embeddings.append(item['embeddings'])
-                else:
-                    raise ValueError('Unexpected response item for embedding')
-        elif isinstance(data, dict) and 'embeddings' in data:
-            embeddings.extend(data['embeddings'])
-        elif isinstance(data, list):
-            embeddings.extend(data)
-        else:
-            raise ValueError('Unexpected response format from embedding service')
+        embeddings.extend(_extract_embeddings_from_response(data))
 
     return np.array(embeddings, dtype=float)
+
+
+def _extract_embeddings_from_response(data):
+    """Extract embeddings from various API response formats.
+
+    Handles multiple response formats:
+    - OpenAI style: {'data': [{'embedding': [...]}, ...]}
+    - Simple dict: {'embeddings': [[...], ...]}
+    - Direct list: [[...], [...]]
+
+    Args:
+        data: Response data from embedding API
+
+    Returns:
+        List of embedding arrays
+
+    Raises:
+        ValueError: If response format is not recognized
+    """
+    # Direct list format
+    if isinstance(data, list):
+        return data
+
+    # Dict with 'embeddings' key
+    if isinstance(data, dict) and 'embeddings' in data:
+        return data['embeddings']
+
+    # OpenAI format with 'data' key
+    if isinstance(data, dict) and 'data' in data:
+        items = data['data']
+        if not isinstance(items, list):
+            raise ValueError('Expected data to be a list')
+
+        result = []
+        for item in items:
+            if 'embedding' in item:
+                result.append(item['embedding'])
+            elif 'embeddings' in item:
+                result.append(item['embeddings'])
+            else:
+                raise ValueError(f'Item missing both "embedding" and "embeddings" keys: {item}')
+        return result
+
+    raise ValueError(f'Unexpected response format: {type(data).__name__}')
 
 
 def set_openai_key():
