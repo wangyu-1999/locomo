@@ -119,7 +119,7 @@ def main():
             context_ids.append(f'S{i}')
 
         print(f"Getting embeddings for {len(summaries)} summaries in sample {sample_id}...")
-        embeddings = get_embeddings(args.retriever, summaries, 'context')
+        embeddings = get_embeddings(summaries)
         assert embeddings.shape[0] == len(summaries), "Embeddings dimension mismatch!"
         
         database = {

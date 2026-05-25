@@ -80,7 +80,7 @@ def _prepare_dialog_database(args, data, pkl_path):
             dialogs.append(dialog_text)
 
     print(f"Getting embeddings for {len(dialogs)} dialogs")
-    embeddings = get_embeddings(args.retriever, dialogs, 'context')
+    embeddings = get_embeddings(dialogs)
     assert embeddings.shape[0] == len(dialogs), "Lengths of embeddings and dialogs do not match"
     
     database = {
@@ -114,7 +114,7 @@ def prepare_for_rag(args, data):
     
     qa_list = data.get('qa', [])
     print(f"Getting embeddings for {len(qa_list)} questions")
-    question_embeddings = get_embeddings(args.retriever, [q['question'] for q in qa_list], 'query')
+    question_embeddings = get_embeddings([q['question'] for q in qa_list])
 
     return database, question_embeddings
 

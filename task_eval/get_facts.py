@@ -155,9 +155,9 @@ def _generate_and_save_embeddings(args, sample_id, observations, date_times, con
         
     if args.use_date:
         inputs = [f"{dt}. {obs}" for dt, obs in zip(date_times, observations)]
-        embeddings = get_embeddings(args.retriever, inputs, 'context')
+        embeddings = get_embeddings(inputs)
     else:
-        embeddings = get_embeddings(args.retriever, observations, 'context')
+        embeddings = get_embeddings(observations)
     
     assert embeddings.shape[0] == len(observations), "Embeddings dimension mismatch!"
 
