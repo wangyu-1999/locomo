@@ -1,5 +1,6 @@
 import sys
 from pathlib import Path
+import pickle as pkl
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
@@ -7,10 +8,17 @@ import json
 import pickle
 import argparse
 from tqdm import tqdm
+import numpy as np
+import openai
 
-from generative_agents.memory_utils import get_session_facts
-from global_methods import set_openai_key
+from global_methods import set_openai_key,run_json_trials
 from task_eval.rag_utils import get_embeddings
+
+
+CONVERSATION2FACTS_PROMPT = """
+Write a concise and short list of all possible OBSERVATIONS about each speaker that can be gathered from the CONVERSATION. Each dialog in the conversation contains a dialogue id within square brackets. Each observation should contain a piece of information about the speaker, and also include the dialog id of the dialogs from which the information is taken. The OBSERVATIONS should be objective factual information about the speaker that can be used as a database about them. Avoid abstract observations about the dynamics between the two speakers such as 'speaker is supportive', 'speaker appreciates' etc. Do not leave out any information from the CONVERSATION. Important: Escape all double-quote characters within string output with backslash.\n\n
+"""
+
 
 def parse_args():
     parser = argparse.ArgumentParser()
@@ -23,6 +31,100 @@ def parse_args():
     parser.add_argument('--retriever', type=str, default="remote")
 
     return parser.parse_args()
+
+
+def get_embedding(texts, model="text-embedding-ada-002"):
+   texts = [text.replace("\n", " ") for text in texts]
+   return np.array([openai.Embedding.create(input = texts, model=model)['data'][i]['embedding'] for i in range(len(texts))])
+
+def get_session_facts(args, agent_a, agent_b, session_idx, return_embeddings=True):
+    prompt_path = Path(args.prompt_dir) / 'fact_generation_examples_new.json'
+    with open(prompt_path, 'r', encoding='utf-8') as f:
+        task = json.load(f)
+        
+    query = CONVERSATION2FACTS_PROMPT
+    input_prefix = task.get('input_prefix', '')
+    
+    examples = [
+        [f"{input_prefix}{e['input']}", json.dumps(e["output"], indent=2)] 
+        for e in task.get('examples', [])
+    ]
+
+    # 构建对话内容
+    session_key = f'session_{session_idx}'
+    datetime_key = f'{session_key}_date_time'
+    
+    conv_lines = [agent_a.get(datetime_key, '')]
+    
+    for dialog in agent_a.get(session_key, []):
+        dia_id = dialog.get("dia_id", "")
+        speaker = dialog.get("speaker", "")
+        
+        text = dialog.get('clean_text', dialog.get('text', ''))
+        
+        line = f"[{dia_id}] {speaker} said, \"{text}\""
+        
+        if 'blip_caption' in dialog:
+            line += f" and shared {dialog['blip_caption']}"
+            
+        conv_lines.append(line)
+        
+    # 用换行符拼接所有对话行
+    conversation = '\n'.join(conv_lines) + '\n'
+    
+    # 执行推断
+    input_text = f"{input_prefix}{conversation}"
+    facts = run_json_trials(
+        query, num_gen=1, num_tokens_request=500, 
+        use_16k=False, examples=examples, input=input_text
+    )
+
+    # 如果不需要生成 embeddings，提前返回
+    if not return_embeddings:
+        return facts
+
+    # 准备生成 embeddings 时的前缀时间信息
+    agent_a_time = agent_a.get(datetime_key, '')
+    agent_b_time = agent_b.get(datetime_key, '')
+    
+    # 构建文本列表
+    agent_a_texts = [f"{agent_a_time}, {f}" for f, _ in facts.get(agent_a['name'], [])]
+    agent_b_texts = [f"{agent_b_time}, {f}" for f, _ in facts.get(agent_b['name'], [])]
+
+    # 获取 Embeddings
+    agent_a_embeddings = get_embedding(agent_a_texts)
+    agent_b_embeddings = get_embedding(agent_b_texts)
+
+    embs = {}
+    emb_file_path = Path(args.emb_file)
+
+    if session_idx > 1 and emb_file_path.exists():
+        with open(emb_file_path, 'rb') as f:
+            embs = pkl.load(f)
+            
+        name_a, name_b = agent_a['name'], agent_b['name']
+        
+        if name_a in embs and agent_a_embeddings.size > 0:
+            embs[name_a] = np.concatenate([embs[name_a], agent_a_embeddings], axis=0)
+        else:
+            embs[name_a] = agent_a_embeddings
+            
+        if name_b in embs and agent_b_embeddings.size > 0:
+            embs[name_b] = np.concatenate([embs[name_b], agent_b_embeddings], axis=0)
+        else:
+            embs[name_b] = agent_b_embeddings
+            
+    else:
+        # 首个 session，直接初始化字典
+        embs[agent_a['name']] = agent_a_embeddings
+        embs[agent_b['name']] = agent_b_embeddings
+    
+    # 确保父目录存在后安全持久化写入
+    emb_file_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(emb_file_path, 'wb') as f:
+        pkl.dump(embs, f)
+    
+    return facts
 
 
 def _load_data(data_file_path: Path, out_file_path: Path):
