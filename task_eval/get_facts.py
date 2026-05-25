@@ -1,6 +1,5 @@
 import sys
 from pathlib import Path
-import pickle as pkl
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
@@ -31,7 +30,7 @@ def parse_args():
     return parser.parse_args()
 
 
-def get_session_facts(args, agent_a, agent_b, session_idx, return_embeddings=True):
+def get_session_facts(args, agent_a, session_idx):
     prompt_path = Path(args.prompt_dir) / 'fact_generation_examples_new.json'
     with open(prompt_path, 'r', encoding='utf-8') as f:
         task = json.load(f)
@@ -73,8 +72,7 @@ def get_session_facts(args, agent_a, agent_b, session_idx, return_embeddings=Tru
         use_16k=False, examples=examples, input=input_text
     )
 
-    if not return_embeddings:
-        return facts
+    return facts
 
 
 def _load_data(data_file_path: Path, out_file_path: Path):
@@ -129,7 +127,7 @@ def _process_observations(args, sample_id, data, output, min_sess, max_sess, out
         else:
             if session_obs_key not in output or args.overwrite:
                 facts = get_session_facts(
-                    args, data['conversation'], data['conversation'], i, return_embeddings=False
+                    args, data['conversation'], i
                 )
                 output[session_obs_key] = facts
             else:
